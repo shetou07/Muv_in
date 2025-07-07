@@ -1,0 +1,25 @@
+{
+  "canisters": {
+    "muv_in_icp_backend": {
+      "main": "src/muv_in_icp_backend/main.mo",
+      "type": "motoko"
+    },
+    "muv_in_icp_frontend": {
+      "dependencies": [
+        "muv_in_icp_backend"
+      ],
+      "source": [
+        "src/muv_in_icp_frontend/assets"
+      ],
+      "type": "assets"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
