@@ -9,7 +9,7 @@
         "muv_in_icp_backend"
       ],
       "source": [
-        "src/muv_in_icp_frontend/assets"
+        "src/muv_in_icp_frontend/build"
       ],
       "type": "assets"
     }
