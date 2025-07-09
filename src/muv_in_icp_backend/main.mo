@@ -4,8 +4,9 @@ import Time "mo:base/Time";
 import Principal "mo:base/Principal";
 import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
+import Array "mo:base/Array";
 
-actor class MuvIn() = this {
+actor MuvIn {
 
   // Types
   type Hotel = {
@@ -28,14 +29,31 @@ actor class MuvIn() = this {
     totalPrice: Nat;
   };
 
-  // Storage
-  stable var hotels = Buffer.Buffer<Hotel>(0);
-  stable var bookings = Buffer.Buffer<Booking>(0);
-  stable var hotelCounter: Nat = 0;
-  stable var bookingCounter: Nat = 0;
+  // Storage - Buffers cannot be stable
+  private var hotels = Buffer.Buffer<Hotel>(0);
+  private var bookings = Buffer.Buffer<Booking>(0);
+  private stable var hotelCounter: Nat = 0;
+  private stable var bookingCounter: Nat = 0;
+
+  // Stable storage for upgrade persistence
+  private stable var stableHotels: [Hotel] = [];
+  private stable var stableBookings: [Booking] = [];
+
+  // System upgrade hooks
+  system func preupgrade() {
+    stableHotels := Buffer.toArray(hotels);
+    stableBookings := Buffer.toArray(bookings);
+  };
+
+  system func postupgrade() {
+    hotels := Buffer.fromArray<Hotel>(stableHotels);
+    bookings := Buffer.fromArray<Booking>(stableBookings);
+    stableHotels := [];
+    stableBookings := [];
+  };
 
   // Add a hotel
-  public func addHotel(
+  public shared(msg) func addHotel(
     name: Text,
     location: Text,
     description: Text,
@@ -50,7 +68,7 @@ actor class MuvIn() = this {
       totalRooms;
       availableRooms = totalRooms;
       pricePerNight;
-      owner = caller;
+      owner = msg.caller;
     };
     hotels.add(newHotel);
     hotelCounter += 1;
@@ -59,7 +77,7 @@ actor class MuvIn() = this {
 
   // View all hotels
   public query func getHotels(): async [Hotel] {
-    return Buffer.toArray(hotels)
+    return Buffer.toArray(hotels);
   };
 
   // View a single hotel by ID
@@ -71,103 +89,102 @@ actor class MuvIn() = this {
   };
 
   // Book a room at a hotel
-  public func bookHotel(hotelId: Nat, nights: Nat): async Text {
-    var found = false;
+  public shared(msg) func bookHotel(hotelId: Nat, nights: Nat): async Text {
+    // Input validation
+    if (nights == 0) {
+      return "Number of nights must be greater than 0";
+    };
 
+    // Find hotel by ID and update if available
     for (i in Iter.range(0, hotels.size() - 1)) {
-      let hotel = hotels.get(i);
-      if (hotel.id == hotelId and hotel.availableRooms > 0) {
-        // Update available rooms
-        let updatedHotel = {
-          id = hotel.id;
-          name = hotel.name;
-          location = hotel.location;
-          description = hotel.description;
-          totalRooms = hotel.totalRooms;
-          availableRooms = hotel.availableRooms - 1;
-          pricePerNight = hotel.pricePerNight;
-          owner = hotel.owner;
-        };
-        hotels.put(i, updatedHotel);
+      if (i < hotels.size()) {
+        let hotel = hotels.get(i);
+        if (hotel.id == hotelId and hotel.availableRooms > 0) {
+          // Update available rooms
+          let updatedHotel: Hotel = {
+            id = hotel.id;
+            name = hotel.name;
+            location = hotel.location;
+            description = hotel.description;
+            totalRooms = hotel.totalRooms;
+            availableRooms = hotel.availableRooms - 1;
+            pricePerNight = hotel.pricePerNight;
+            owner = hotel.owner;
+          };
+          hotels.put(i, updatedHotel);
 
-        // Create booking
-        let total = hotel.pricePerNight * nights;
-        let booking: Booking = {
-          id = bookingCounter;
-          hotelId = hotelId;
-          bookedBy = caller;
-          timestamp = Time.now();
-          nights = nights;
-          totalPrice = total;
-        };
-        bookings.add(booking);
-        bookingCounter += 1;
+          // Create booking
+          let total = hotel.pricePerNight * nights;
+          let booking: Booking = {
+            id = bookingCounter;
+            hotelId = hotelId;
+            bookedBy = msg.caller;
+            timestamp = Time.now();
+            nights = nights;
+            totalPrice = total;
+          };
+          bookings.add(booking);
+          bookingCounter += 1;
 
-        found := true;
-        break;
+          return "Booking successful";
+        };
       };
     };
 
-    if (found) {
-      return "Booking successful";
-    } else {
-      return "Hotel not found or no rooms available";
-    };
+    return "Hotel not found or no rooms available";
   };
 
   // View your bookings
-  public query func getMyBookings(): async [Booking] {
+  public shared(msg) func getMyBookings(): async [Booking] {
     let result = Buffer.Buffer<Booking>(0);
     for (b in bookings.vals()) {
-      if (b.bookedBy == caller) {
+      if (b.bookedBy == msg.caller) {
         result.add(b);
       };
     };
-    return Buffer.toArray(result)
+    return Buffer.toArray(result);
   };
 
   // Cancel a booking
-  public func cancelBooking(bookingId: Nat): async Text {
-    var bookingOpt: ?Booking = null;
-    var bookingIndex: Nat = 0;
+  public shared(msg) func cancelBooking(bookingId: Nat): async Text {
+    var foundBooking: ?Booking = null;
 
     // Find the booking
-    for (i in Iter.range(0, bookings.size() - 1)) {
-      let b = bookings.get(i);
-      if (b.id == bookingId and b.bookedBy == caller) {
-        bookingOpt := ?b;
-        bookingIndex := i;
-        break;
+    for (b in bookings.vals()) {
+      if (b.id == bookingId and b.bookedBy == msg.caller) {
+        foundBooking := ?b;
       };
     };
 
-    switch (bookingOpt) {
+    switch (foundBooking) {
       case null return "Booking not found or not yours";
       case (?booking) {
-        // Remove booking (overwrite with last element)
-        let lastIndex = bookings.size() - 1;
-        if (bookingIndex != lastIndex) {
-          let last = bookings.get(lastIndex);
-          bookings.put(bookingIndex, last);
+        // Remove booking using filter approach
+        let newBookings = Buffer.Buffer<Booking>(0);
+        for (b in bookings.vals()) {
+          if (b.id != bookingId) {
+            newBookings.add(b);
+          };
         };
-        bookings.removeLast();
+        bookings := newBookings;
 
         // Restore room to hotel
         for (i in Iter.range(0, hotels.size() - 1)) {
-          let h = hotels.get(i);
-          if (h.id == booking.hotelId) {
-            let updatedHotel = {
-              id = h.id;
-              name = h.name;
-              location = h.location;
-              description = h.description;
-              totalRooms = h.totalRooms;
-              availableRooms = h.availableRooms + 1;
-              pricePerNight = h.pricePerNight;
-              owner = h.owner;
+          if (i < hotels.size()) {
+            let hotel = hotels.get(i);
+            if (hotel.id == booking.hotelId) {
+              let updatedHotel: Hotel = {
+                id = hotel.id;
+                name = hotel.name;
+                location = hotel.location;
+                description = hotel.description;
+                totalRooms = hotel.totalRooms;
+                availableRooms = hotel.availableRooms + 1;
+                pricePerNight = hotel.pricePerNight;
+                owner = hotel.owner;
+              };
+              hotels.put(i, updatedHotel);
             };
-            hotels.put(i, updatedHotel);
-            break;
           };
         };
 
@@ -176,4 +193,20 @@ actor class MuvIn() = this {
     };
   };
 
-};
+  // Get all bookings (for debugging/admin purposes)
+  public query func getAllBookings(): async [Booking] {
+    return Buffer.toArray(bookings);
+  };
+
+  // Get hotel by owner
+  public shared(msg) func getMyHotels(): async [Hotel] {
+    let result = Buffer.Buffer<Hotel>(0);
+    for (h in hotels.vals()) {
+      if (h.owner == msg.caller) {
+        result.add(h);
+      };
+    };
+    return Buffer.toArray(result);
+  };
+
+}
