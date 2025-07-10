@@ -1,8 +1,76 @@
-# Getting Started with Create React App
+# Muv In - Decentralized Hotel Booking dApp
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern, futuristic Web3-inspired decentralized hotel booking application built on the Internet Computer Protocol (ICP). Experience the future of hotel booking with complete decentralization, transparent pricing, and secure blockchain transactions.
 
-## Available Scripts
+## 🚀 Features
+
+### Core Functionality
+- **Wallet Integration**: Connect with Internet Identity or Plug wallet
+- **Hotel Discovery**: Browse and filter hotels with advanced search
+- **Smart Booking**: Secure bookings with ICP token payments  
+- **Booking Management**: Track and manage your reservations
+- **Hotel Management**: Admin panel for hotel owners
+
+### UI/UX Design
+- **Web3-Native Design**: Sleek, futuristic interface with neon accents
+- **Dark Mode First**: Optimized for crypto-native users
+- **Responsive**: Mobile-first design that works on all devices
+- **Glassmorphism**: Modern glass effects and backdrop blur
+- **Smooth Animations**: Framer Motion powered interactions
+
+## 🎨 Design System
+
+### Color Palette
+- **Primary**: Dark blue-gray (`#0f172a`)
+- **Royal Blue**: `#1e40af` (primary actions)
+- **Neon Blue**: `#0ea5e9` (accents and highlights)
+- **Neon Cyan**: `#06b6d4` (secondary accents)
+- **Dark Background**: `#0f172a` (main background)
+
+### Typography
+- **Sans**: Inter (body text)
+- **Display**: Space Grotesk (headings)
+- **Mono**: JetBrains Mono (code/addresses)
+
+## 📱 Pages & Features
+
+### 1. Landing Page
+- Hero section with compelling call-to-action
+- Feature highlights with animated icons
+- Statistics showcase
+- Wallet connection prompt
+
+### 2. Hotels Listing
+- Grid/list view toggle
+- Advanced filtering system
+- Search functionality
+- Hotel cards with ratings and amenities
+
+### 3. Hotel Details
+- Image carousel with navigation
+- Detailed hotel information
+- Amenities grid with icons
+- Booking panel with date selection
+
+### 4. My Bookings
+- Booking history and status tracking
+- Filter by booking status
+- Cancel booking functionality
+
+### 5. Admin Panel (Hotel Owners)
+- Hotel management dashboard
+- Add new hotels with image upload
+- Performance analytics
+
+## 🛠 Tech Stack
+
+- **React 19** with TypeScript
+- **Tailwind CSS** for styling
+- **Framer Motion** for animations
+- **React Router** for navigation
+- **Lucide React** for icons
+
+## 🚦 Getting Started
 
 In the project directory, you can run:
 

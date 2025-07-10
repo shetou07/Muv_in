@@ -1,13 +1,89 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* @postcss */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+  body {
+    @apply bg-dark-100 text-white font-sans;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+@layer components {
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-white/5 backdrop-blur-md border border-white/10;
+  }
+  
+  .glass-strong {
+    @apply bg-white/10 backdrop-blur-lg border border-white/20;
+  }
+
+  /* Neon glow effects */
+  .neon-glow-blue {
+    box-shadow: 0 0 10px #0ea5e9, 0 0 20px #0ea5e9, 0 0 30px #0ea5e9;
+  }
+  
+  .neon-glow-cyan {
+    box-shadow: 0 0 10px #06b6d4, 0 0 20px #06b6d4, 0 0 30px #06b6d4;
+  }
+
+  /* Cyber button styles */
+  .btn-cyber {
+    @apply relative px-6 py-3 font-medium text-white transition-all duration-300 ease-out;
+    @apply bg-gradient-to-r from-royal-600 to-royal-700;
+    @apply border border-royal-500 rounded-lg;
+    @apply hover:from-royal-500 hover:to-royal-600;
+    @apply hover:shadow-lg hover:shadow-royal-500/25;
+    @apply active:scale-95;
+  }
+  
+  .btn-cyber-outline {
+    @apply btn-cyber bg-transparent;
+    @apply hover:bg-royal-600/20;
+  }
+
+  .btn-neon {
+    @apply relative px-6 py-3 font-medium text-white transition-all duration-300;
+    @apply bg-transparent border-2 border-neon-blue rounded-lg;
+    @apply hover:bg-neon-blue/10 hover:shadow-lg hover:shadow-neon-blue/50;
+    @apply active:scale-95;
+  }
+
+  /* Card styles */
+  .card-cyber {
+    @apply glass rounded-xl p-6 hover:glass-strong transition-all duration-300;
+  }
+
+  /* Input styles */
+  .input-cyber {
+    @apply w-full px-4 py-3 bg-dark-200/50 border border-dark-300;
+    @apply rounded-lg text-white placeholder-gray-400;
+    @apply focus:border-royal-500 focus:ring-2 focus:ring-royal-500/20;
+    @apply transition-all duration-200;
+  }
+
+  /* Scrollbar styles */
+  .scrollbar-cyber::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .scrollbar-cyber::-webkit-scrollbar-track {
+    @apply bg-dark-200;
+  }
+  
+  .scrollbar-cyber::-webkit-scrollbar-thumb {
+    @apply bg-royal-600 rounded-full;
+  }
+  
+  .scrollbar-cyber::-webkit-scrollbar-thumb:hover {
+    @apply bg-royal-500;
+  }
 }
