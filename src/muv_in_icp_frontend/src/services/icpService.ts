@@ -23,8 +23,21 @@ import type {
 } from './types';
 
 // Environment configuration
-const CANISTER_ID = process.env.REACT_APP_CANISTER_ID_MUV_IN_ICP_BACKEND || 'rrkah-fqaaa-aaaaa-aaaaq-cai';
-const HOST = process.env.NODE_ENV === 'production' ? 'https://ic0.app' : 'http://127.0.0.1:4943';
+const CANISTER_ID = process.env.REACT_APP_CANISTER_ID_MUV_IN_ICP_BACKEND || 'umunu-kh777-77774-qaaca-cai';
+
+// Detect if we're in GitHub Codespaces
+const isCodespaces = process.env.CODESPACES === 'true';
+const codespaceName = process.env.CODESPACE_NAME;
+
+let HOST: string;
+if (process.env.NODE_ENV === 'production') {
+  HOST = 'https://ic0.app';
+} else if (isCodespaces && codespaceName) {
+  // Use Codespaces forwarded port URL
+  HOST = `https://${codespaceName}-4943.app.github.dev`;
+} else {
+  HOST = 'http://127.0.0.1:4943';
+}
 
 // IDL (Interface Definition Language) for the backend canister
 const idlFactory: IDL.InterfaceFactory = ({ IDL }) => {
@@ -196,7 +209,11 @@ class ICPService {
 
     // Fetch root key for local development
     if (process.env.NODE_ENV !== 'production') {
-      await this.agent.fetchRootKey();
+      try {
+        await this.agent.fetchRootKey();
+      } catch (error) {
+        console.warn('Failed to fetch root key:', error);
+      }
     }
 
     this.actor = Actor.createActor<MuvInBackend>(idlFactory, {
@@ -210,7 +227,11 @@ class ICPService {
     this.agent = new HttpAgent({ host: HOST });
 
     if (process.env.NODE_ENV !== 'production') {
-      await this.agent.fetchRootKey();
+      try {
+        await this.agent.fetchRootKey();
+      } catch (error) {
+        console.warn('Failed to fetch root key:', error);
+      }
     }
 
     this.actor = Actor.createActor<MuvInBackend>(idlFactory, {
