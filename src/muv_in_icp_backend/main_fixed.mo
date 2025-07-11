@@ -240,9 +240,7 @@ actor MuvIn {
   public query func searchHotels(location: Text, minPrice: Nat, maxPrice: Nat) : async [Hotel] {
     let results = Buffer.Buffer<Hotel>(0);
     for (hotel in hotels.vals()) {
-      let locationLower = Text.toLowercase(hotel.location);
-      let searchLower = Text.toLowercase(location);
-      let locationMatch = Text.contains(locationLower, #text searchLower);
+      let locationMatch = Text.contains(Text.toLowercase(hotel.location), #text Text.toLowercase(location));
       let priceMatch = hotel.pricePerNight >= minPrice and hotel.pricePerNight <= maxPrice;
       
       if (locationMatch and priceMatch) {
