@@ -1,5 +1,6 @@
 // Data types for the Muv In dApp
 
+// Legacy types for backwards compatibility
 export interface Hotel {
   id: string;
   name: string;
@@ -43,6 +44,17 @@ export interface WalletConnection {
   principal: string | null;
   balance: number; // in ICP
 }
+
+// Re-export ICP service types for convenience
+export type {
+  UIHotel,
+  UIBooking,
+  UIReview,
+  UIUser,
+  CreateHotelForm,
+  CreateBookingForm,
+  CreateReviewForm
+} from '../services/types';
 
 export interface BookingFormData {
   checkIn: string;

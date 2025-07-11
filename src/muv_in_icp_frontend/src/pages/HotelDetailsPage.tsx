@@ -18,45 +18,33 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { Hotel, BookingFormData } from '../types';
+import { UIHotel, CreateBookingForm } from '../types';
 import { useApp } from '../context/AppContext';
 
 const HotelDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { wallet, bookHotel, isLoading } = useApp();
-  const [hotel, setHotel] = useState<Hotel | null>(null);
+  const { isAuthenticated, getHotel, createBooking, isLoading } = useApp();
+  const [hotel, setHotel] = useState<UIHotel | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [bookingData, setBookingData] = useState<BookingFormData>({
+  const [bookingData, setBookingData] = useState({
     checkIn: '',
     checkOut: '',
     roomsCount: 1,
   });
 
-  // Mock hotel data - in real app, this would come from your backend
+  // Load hotel data from backend
   useEffect(() => {
-    const mockHotel: Hotel = {
-      id: id || '1',
-      name: 'Cyber Palace Hotel',
-      description: 'Experience the future of hospitality at Cyber Palace Hotel, where cutting-edge technology meets luxury accommodation. Located in the heart of Neo Tokyo\'s digital district, this architectural marvel features holographic concierge services, AI-powered room customization, and breathtaking views of the city\'s neon-lit skyline.',
-      location: 'Neo Tokyo, Japan',
-      pricePerNight: 150,
-      totalRooms: 50,
-      availableRooms: 12,
-      images: [
-        'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800',
-        'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800',
-        'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800',
-        'https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=800',
-      ],
-      amenities: ['WiFi', 'Pool', 'Spa', 'Restaurant', 'Gym', 'Parking', 'Room Service', 'Concierge'],
-      ownerId: 'owner1',
-      rating: 4.8,
-      reviews: 127,
+    const loadHotel = async () => {
+      if (id) {
+        const hotelData = await getHotel(Number(id));
+        setHotel(hotelData);
+      }
     };
-    setHotel(mockHotel);
-  }, [id]);
+    
+    loadHotel();
+  }, [id, getHotel]);
 
   const nextImage = () => {
     if (hotel) {
@@ -71,24 +59,32 @@ const HotelDetailsPage: React.FC = () => {
   };
 
   const handleBooking = async () => {
-    if (!wallet.isConnected) {
-      alert('Please connect your wallet first');
+    if (!isAuthenticated) {
+      alert('Please login first');
       return;
     }
+
+    if (!hotel) return;
 
     const checkInDate = new Date(bookingData.checkIn);
     const checkOutDate = new Date(bookingData.checkOut);
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
-    const totalPrice = nights * hotel!.pricePerNight * bookingData.roomsCount;
 
-    await bookHotel(hotel!.id, {
-      ...bookingData,
-      nights,
-      totalPrice,
-    });
+    const booking: CreateBookingForm = {
+      hotelId: hotel.id,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      roomsBooked: bookingData.roomsCount,
+    };
 
-    setShowBookingModal(false);
-    navigate('/bookings');
+    const bookingId = await createBooking(booking);
+    
+    if (bookingId) {
+      setShowBookingModal(false);
+      navigate('/bookings');
+    } else {
+      alert('Failed to create booking. Please try again.');
+    }
   };
 
   const getAmenityIcon = (amenity: string) => {
@@ -105,12 +101,35 @@ const HotelDetailsPage: React.FC = () => {
     return icons[amenity] || <Check className="w-5 h-5" />;
   };
 
-  if (!hotel) {
+  if (isLoading || !hotel) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-royal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Loading hotel details...</p>
+      <div className="min-h-screen py-8">
+        <div className="container mx-auto px-4 lg:px-8">
+          {/* Back Button */}
+          <motion.button
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={() => navigate('/hotels')}
+            className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors duration-200 mb-8"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Hotels</span>
+          </motion.button>
+
+          {/* Loading State */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <div className="h-96 bg-dark-200 rounded-lg animate-pulse mb-6"></div>
+              <div className="space-y-4">
+                <div className="h-8 bg-dark-200 rounded w-3/4 animate-pulse"></div>
+                <div className="h-4 bg-dark-200 rounded w-1/2 animate-pulse"></div>
+                <div className="h-20 bg-dark-200 rounded animate-pulse"></div>
+              </div>
+            </div>
+            <div className="lg:col-span-1">
+              <div className="h-96 bg-dark-200 rounded-lg animate-pulse"></div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -195,7 +214,7 @@ const HotelDetailsPage: React.FC = () => {
                     <div className="flex items-center space-x-1">
                       <Star className="w-4 h-4 text-yellow-400 fill-current" />
                       <span className="text-white font-medium">{hotel.rating}</span>
-                      <span>({hotel.reviews} reviews)</span>
+                      <span>({hotel.reviewCount} reviews)</span>
                     </div>
                   </div>
                 </div>
@@ -323,10 +342,10 @@ const HotelDetailsPage: React.FC = () => {
 
               <button
                 onClick={() => setShowBookingModal(true)}
-                disabled={!bookingData.checkIn || !bookingData.checkOut || !wallet.isConnected}
+                disabled={!bookingData.checkIn || !bookingData.checkOut || !isAuthenticated}
                 className="w-full btn-cyber disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {!wallet.isConnected ? 'Connect Wallet to Book' : 'Book Now'}
+                {!isAuthenticated ? 'Login to Book' : 'Book Now'}
               </button>
             </div>
           </motion.div>

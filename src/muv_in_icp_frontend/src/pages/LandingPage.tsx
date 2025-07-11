@@ -13,12 +13,10 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import WalletModal from '../components/WalletModal';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { wallet } = useApp();
-  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const { isAuthenticated, login } = useApp();
 
   const features = [
     {
@@ -100,13 +98,13 @@ const LandingPage: React.FC = () => {
                 <ArrowRight className="w-5 h-5 ml-2" />
               </button>
 
-              {!wallet.isConnected && (
+              {!isAuthenticated && (
                 <button
-                  onClick={() => setIsWalletModalOpen(true)}
+                  onClick={login}
                   className="btn-neon text-lg px-8 py-4"
                 >
                   <Wallet className="w-5 h-5 mr-2" />
-                  Connect Wallet
+                  Login with Internet Identity
                 </button>
               )}
             </motion.div>
@@ -222,11 +220,6 @@ const LandingPage: React.FC = () => {
           </motion.div>
         </div>
       </section>
-
-      <WalletModal 
-        isOpen={isWalletModalOpen} 
-        onClose={() => setIsWalletModalOpen(false)} 
-      />
     </div>
   );
 };

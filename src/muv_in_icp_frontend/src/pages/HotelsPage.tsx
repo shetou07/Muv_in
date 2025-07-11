@@ -13,12 +13,13 @@ import {
   List,
   SlidersHorizontal
 } from 'lucide-react';
-import { Hotel, FilterOptions } from '../types';
+import { UIHotel, FilterOptions } from '../types';
+import { useApp } from '../context/AppContext';
 
 const HotelsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [filteredHotels, setFilteredHotels] = useState<Hotel[]>([]);
+  const { hotels, isLoading } = useApp();
+  const [filteredHotels, setFilteredHotels] = useState<UIHotel[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isGridView, setIsGridView] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
@@ -29,72 +30,7 @@ const HotelsPage: React.FC = () => {
     availableRooms: true,
   });
 
-  // Mock hotel data
-  useEffect(() => {
-    const mockHotels: Hotel[] = [
-      {
-        id: '1',
-        name: 'Cyber Palace Hotel',
-        description: 'Luxury futuristic hotel in the heart of the digital district',
-        location: 'Neo Tokyo, Japan',
-        pricePerNight: 150,
-        totalRooms: 50,
-        availableRooms: 12,
-        images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'],
-        amenities: ['WiFi', 'Pool', 'Spa', 'Restaurant', 'Gym'],
-        ownerId: 'owner1',
-        rating: 4.8,
-        reviews: 127,
-      },
-      {
-        id: '2',
-        name: 'Blockchain Heights',
-        description: 'High-tech accommodation with stunning city views',
-        location: 'Singapore',
-        pricePerNight: 200,
-        totalRooms: 30,
-        availableRooms: 8,
-        images: ['https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800'],
-        amenities: ['WiFi', 'Rooftop Bar', 'Business Center', 'Concierge'],
-        ownerId: 'owner2',
-        rating: 4.9,
-        reviews: 89,
-      },
-      {
-        id: '3',
-        name: 'Quantum Resort',
-        description: 'Peaceful retreat with cutting-edge amenities',
-        location: 'Zurich, Switzerland',
-        pricePerNight: 300,
-        totalRooms: 75,
-        availableRooms: 25,
-        images: ['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800'],
-        amenities: ['WiFi', 'Spa', 'Ski Access', 'Fine Dining', 'Wellness Center'],
-        ownerId: 'owner3',
-        rating: 4.7,
-        reviews: 203,
-      },
-      {
-        id: '4',
-        name: 'Neon Nights Hotel',
-        description: 'Vibrant urban hotel with immersive experiences',
-        location: 'Los Angeles, USA',
-        pricePerNight: 120,
-        totalRooms: 60,
-        availableRooms: 15,
-        images: ['https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=800'],
-        amenities: ['WiFi', 'Pool', 'Gaming Lounge', 'Restaurant', 'Event Spaces'],
-        ownerId: 'owner4',
-        rating: 4.6,
-        reviews: 156,
-      },
-    ];
-    
-    setHotels(mockHotels);
-    setFilteredHotels(mockHotels);
-  }, []);
-
-  // Filter hotels based on search and filters
+  // Update filtered hotels when hotels or filters change
   useEffect(() => {
     let filtered = hotels.filter(hotel => {
       const matchesSearch = hotel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -111,7 +47,7 @@ const HotelsPage: React.FC = () => {
     setFilteredHotels(filtered);
   }, [searchTerm, filters, hotels]);
 
-  const HotelCard: React.FC<{ hotel: Hotel; index: number }> = ({ hotel, index }) => (
+  const HotelCard: React.FC<{ hotel: UIHotel; index: number }> = ({ hotel, index }) => (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
@@ -131,7 +67,7 @@ const HotelsPage: React.FC = () => {
         <div className="absolute bottom-3 left-3 flex items-center space-x-1">
           <Star className="w-4 h-4 text-yellow-400 fill-current" />
           <span className="text-white font-medium">{hotel.rating}</span>
-          <span className="text-gray-300 text-sm">({hotel.reviews})</span>
+          <span className="text-gray-300 text-sm">({hotel.reviewCount})</span>
         </div>
         <div className="absolute top-3 right-3">
           <span className="bg-royal-600 text-white px-2 py-1 rounded-lg text-sm font-medium">
@@ -335,18 +271,34 @@ const HotelsPage: React.FC = () => {
         </motion.div>
 
         {/* Hotels Grid */}
-        <div className={`grid gap-6 ${
-          isGridView 
-            ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' 
-            : 'grid-cols-1'
-        }`}>
-          {filteredHotels.map((hotel, index) => (
-            <HotelCard key={hotel.id} hotel={hotel} index={index} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, index) => (
+              <div key={index} className="card-cyber animate-pulse">
+                <div className="h-48 bg-dark-200 rounded-lg mb-4"></div>
+                <div className="space-y-3">
+                  <div className="h-6 bg-dark-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-dark-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-dark-200 rounded w-full"></div>
+                  <div className="h-4 bg-dark-200 rounded w-2/3"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={`grid gap-6 ${
+            isGridView 
+              ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' 
+              : 'grid-cols-1'
+          }`}>
+            {filteredHotels.map((hotel, index) => (
+              <HotelCard key={hotel.id} hotel={hotel} index={index} />
+            ))}
+          </div>
+        )}
 
         {/* No Results */}
-        {filteredHotels.length === 0 && (
+        {!isLoading && filteredHotels.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

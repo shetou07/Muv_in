@@ -12,68 +12,19 @@ import {
   Eye,
   X as CancelIcon
 } from 'lucide-react';
-import { Booking } from '../types';
+import { UIBooking } from '../types';
 import { useApp } from '../context/AppContext';
 
 const BookingsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { wallet, cancelBooking } = useApp();
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const { bookings, isAuthenticated, cancelBooking, isLoading } = useApp();
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('all');
-
-  // Mock bookings data
-  useEffect(() => {
-    if (wallet.isConnected) {
-      const mockBookings: Booking[] = [
-        {
-          id: '1',
-          hotelId: '1',
-          hotelName: 'Cyber Palace Hotel',
-          userId: wallet.principal!,
-          checkIn: new Date('2024-12-15'),
-          checkOut: new Date('2024-12-18'),
-          nights: 3,
-          totalPrice: 450,
-          status: 'active',
-          roomsBooked: 1,
-          createdAt: new Date('2024-12-01'),
-        },
-        {
-          id: '2',
-          hotelId: '2',
-          hotelName: 'Blockchain Heights',
-          userId: wallet.principal!,
-          checkIn: new Date('2024-11-20'),
-          checkOut: new Date('2024-11-23'),
-          nights: 3,
-          totalPrice: 600,
-          status: 'completed',
-          roomsBooked: 2,
-          createdAt: new Date('2024-11-10'),
-        },
-        {
-          id: '3',
-          hotelId: '3',
-          hotelName: 'Quantum Resort',
-          userId: wallet.principal!,
-          checkIn: new Date('2024-10-10'),
-          checkOut: new Date('2024-10-12'),
-          nights: 2,
-          totalPrice: 600,
-          status: 'cancelled',
-          roomsBooked: 1,
-          createdAt: new Date('2024-09-25'),
-        },
-      ];
-      setBookings(mockBookings);
-    }
-  }, [wallet.isConnected, wallet.principal]);
 
   const filteredBookings = bookings.filter(booking => 
     filter === 'all' || booking.status === filter
   );
 
-  const getStatusIcon = (status: Booking['status']) => {
+  const getStatusIcon = (status: UIBooking['status']) => {
     switch (status) {
       case 'active':
         return <CheckCircle className="w-5 h-5 text-green-400" />;
@@ -88,7 +39,7 @@ const BookingsPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: Booking['status']) => {
+  const getStatusColor = (status: UIBooking['status']) => {
     switch (status) {
       case 'active':
         return 'text-green-400 bg-green-400/10 border-green-400/30';
@@ -103,14 +54,15 @@ const BookingsPage: React.FC = () => {
     }
   };
 
-  const handleCancelBooking = async (bookingId: string) => {
+  const handleCancelBooking = async (bookingId: number) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
-      await cancelBooking(bookingId);
-      setBookings(prev => prev.map(booking => 
-        booking.id === bookingId 
-          ? { ...booking, status: 'cancelled' }
-          : booking
-      ));
+      const success = await cancelBooking(bookingId);
+      if (success) {
+        // Refresh bookings will be handled by the context
+        window.location.reload(); // Simple refresh for now
+      } else {
+        alert('Failed to cancel booking. Please try again.');
+      }
     }
   };
 
@@ -122,7 +74,7 @@ const BookingsPage: React.FC = () => {
     });
   };
 
-  if (!wallet.isConnected) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen py-16">
         <div className="container mx-auto px-4 lg:px-8 text-center">
@@ -134,9 +86,9 @@ const BookingsPage: React.FC = () => {
             <div className="w-24 h-24 bg-dark-200 rounded-xl flex items-center justify-center mx-auto mb-6">
               <Calendar className="w-12 h-12 text-gray-400" />
             </div>
-            <h2 className="text-3xl font-bold text-white mb-4">Connect Your Wallet</h2>
+            <h2 className="text-3xl font-bold text-white mb-4">Login Required</h2>
             <p className="text-gray-400 mb-8">
-              Please connect your wallet to view your bookings
+              Please login to view your bookings
             </p>
             <button
               onClick={() => navigate('/')}
@@ -145,6 +97,21 @@ const BookingsPage: React.FC = () => {
               Go Home
             </button>
           </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen py-8">
+        <div className="container mx-auto px-4 lg:px-8">
+          <div className="h-8 bg-dark-200 rounded w-1/4 animate-pulse mb-8"></div>
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-32 bg-dark-200 rounded-lg animate-pulse"></div>
+            ))}
+          </div>
         </div>
       </div>
     );

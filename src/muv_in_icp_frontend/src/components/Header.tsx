@@ -9,14 +9,22 @@ import {
   Settings, 
   Menu,
   X,
-  LogOut
+  LogOut,
+  User
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import WalletModal from './WalletModal';
 
 const Header: React.FC = () => {
-  const { wallet, user, disconnectWallet } = useApp();
-  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const { 
+    isAuthenticated, 
+    principal, 
+    userProfile,
+    login, 
+    logout,
+    authLoading,
+    error,
+    clearError
+  } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
 
@@ -26,11 +34,21 @@ const Header: React.FC = () => {
     { path: '/', label: 'Home', icon: Home },
     { path: '/hotels', label: 'Hotels', icon: Building2 },
     { path: '/bookings', label: 'My Bookings', icon: Calendar },
-    ...(user?.isHotelOwner ? [{ path: '/admin', label: 'Admin', icon: Settings }] : []),
+    ...(userProfile?.isHotelOwner ? [{ path: '/admin', label: 'Admin', icon: Settings }] : []),
   ];
 
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  const formatPrincipal = (principal: string) => {
+    if (!principal) return '';
+    return `${principal.slice(0, 5)}...${principal.slice(-3)}`;
+  };
+
+  const handleLogin = async () => {
+    clearError();
+    await login();
+  };
+
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (
@@ -81,14 +99,14 @@ const Header: React.FC = () => {
 
             {/* Wallet Section */}
             <div className="flex items-center space-x-4">
-              {wallet.isConnected ? (
+              {isAuthenticated ? (
                 <div className="flex items-center space-x-3">
                   <div className="hidden sm:block text-right">
                     <p className="text-sm font-medium text-white">
-                      {formatAddress(wallet.principal!)}
+                      {formatPrincipal(principal)}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {wallet.balance.toFixed(2)} ICP
+                      {userProfile?.isHotelOwner ? 'Hotel Owner' : 'Guest'}
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -96,12 +114,13 @@ const Header: React.FC = () => {
                       whileHover={{ scale: 1.05 }}
                       className="w-8 h-8 bg-gradient-to-br from-neon-blue to-neon-cyan rounded-full flex items-center justify-center"
                     >
-                      <Wallet className="w-4 h-4 text-white" />
+                      <User className="w-4 h-4 text-white" />
                     </motion.div>
                     <button
-                      onClick={disconnectWallet}
+                      onClick={handleLogout}
                       className="p-2 text-gray-400 hover:text-white transition-colors duration-200"
-                      title="Disconnect Wallet"
+                      title="Logout"
+                      disabled={authLoading}
                     >
                       <LogOut className="w-4 h-4" />
                     </button>
@@ -109,11 +128,12 @@ const Header: React.FC = () => {
                 </div>
               ) : (
                 <button
-                  onClick={() => setIsWalletModalOpen(true)}
-                  className="btn-cyber"
+                  onClick={handleLogin}
+                  disabled={authLoading}
+                  className="btn-cyber disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Wallet className="w-4 h-4 mr-2" />
-                  Connect Wallet
+                  {authLoading ? 'Connecting...' : 'Connect Wallet'}
                 </button>
               )}
 
@@ -156,10 +176,22 @@ const Header: React.FC = () => {
         </div>
       </motion.header>
 
-      <WalletModal 
-        isOpen={isWalletModalOpen} 
-        onClose={() => setIsWalletModalOpen(false)} 
-      />
+      {/* Error Display */}
+      {error && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-500/20 border border-red-500/50 text-white px-4 py-2 text-center"
+        >
+          <p className="text-sm">{error}</p>
+          <button 
+            onClick={clearError}
+            className="ml-2 text-red-300 hover:text-white"
+          >
+            ✕
+          </button>
+        </motion.div>
+      )}
     </>
   );
 };
