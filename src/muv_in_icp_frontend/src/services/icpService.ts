@@ -23,8 +23,37 @@ import type {
 } from './types';
 
 // Environment configuration
-const CANISTER_ID = process.env.REACT_APP_CANISTER_ID_MUV_IN_ICP_BACKEND || 'rrkah-fqaaa-aaaaa-aaaaq-cai';
-const HOST = process.env.NODE_ENV === 'production' ? 'https://ic0.app' : 'http://127.0.0.1:4943';
+const CANISTER_ID = process.env.REACT_APP_CANISTER_ID_MUV_IN_ICP_BACKEND || 'uxrrr-q7777-77774-qaaaq-cai';
+
+// Smart host detection for different environments
+const getHost = () => {
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://ic0.app';
+  }
+  
+  // In development, check if we're running through React dev server
+  if (typeof window !== 'undefined' && window.location.port === '3000') {
+    // Use current origin to leverage the proxy setup
+    return window.location.origin;
+  }
+  
+  // If REACT_APP_HOST is set, use it
+  if (process.env.REACT_APP_HOST) {
+    return process.env.REACT_APP_HOST;
+  }
+  
+  // Default local development
+  return 'http://127.0.0.1:4943';
+};
+
+const HOST = getHost();
+
+console.log('ICP Service Configuration:', {
+  CANISTER_ID,
+  HOST,
+  NODE_ENV: process.env.NODE_ENV,
+  location: typeof window !== 'undefined' ? window.location.href : 'server'
+});
 
 // IDL (Interface Definition Language) for the backend canister
 const idlFactory: IDL.InterfaceFactory = ({ IDL }) => {
@@ -189,34 +218,127 @@ class ICPService {
   private async createActor(): Promise<void> {
     if (!this._identity) return;
 
-    this.agent = new HttpAgent({
-      host: HOST,
-      identity: this._identity,
-    });
+    console.log('Creating authenticated actor with HOST:', HOST);
+    
+    try {
+      this.agent = new HttpAgent({
+        host: HOST,
+        identity: this._identity,
+      });
 
-    // Fetch root key for local development
-    if (process.env.NODE_ENV !== 'production') {
-      await this.agent.fetchRootKey();
+      // Fetch root key for local development
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          await this.agent.fetchRootKey();
+          console.log('Root key fetched successfully');
+        } catch (error) {
+          console.error('Failed to fetch root key:', error);
+          
+          // Try alternative hosts if current one fails
+          const alternativeHosts = [
+            'http://127.0.0.1:4943',
+            'http://localhost:4943',
+            `${window.location.origin}/api`
+          ];
+
+          let connected = false;
+          for (const altHost of alternativeHosts) {
+            if (altHost === HOST) continue; // Skip the one we already tried
+            
+            try {
+              console.log(`Trying alternative host: ${altHost}`);
+              const altAgent = new HttpAgent({
+                host: altHost,
+                identity: this._identity,
+              });
+              
+              await altAgent.fetchRootKey();
+              console.log(`Successfully connected to ${altHost}`);
+              this.agent = altAgent;
+              connected = true;
+              break;
+            } catch (altError) {
+              console.log(`Failed to connect to ${altHost}:`, altError instanceof Error ? altError.message : String(altError));
+            }
+          }
+
+          if (!connected) {
+            console.error('All connection attempts failed. Using fallback mode.');
+            // Continue without root key for offline development
+            console.warn('Running in fallback mode - some features may not work');
+          }
+        }
+      }
+
+      this.actor = Actor.createActor<MuvInBackend>(idlFactory, {
+        agent: this.agent,
+        canisterId: CANISTER_ID,
+      });
+      
+      console.log('Authenticated actor created successfully');
+    } catch (error) {
+      console.error('Failed to create authenticated actor:', error);
+      throw error;
     }
-
-    this.actor = Actor.createActor<MuvInBackend>(idlFactory, {
-      agent: this.agent,
-      canisterId: CANISTER_ID,
-    });
   }
 
   // Create anonymous actor for read-only operations
   private async createAnonymousActor(): Promise<void> {
-    this.agent = new HttpAgent({ host: HOST });
+    console.log('Creating anonymous actor with HOST:', HOST, 'CANISTER_ID:', CANISTER_ID);
+    
+    try {
+      this.agent = new HttpAgent({ host: HOST });
 
-    if (process.env.NODE_ENV !== 'production') {
-      await this.agent.fetchRootKey();
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          await this.agent.fetchRootKey();
+          console.log('Root key fetched successfully for anonymous actor');
+        } catch (error) {
+          console.error('Failed to fetch root key for anonymous actor:', error);
+          
+          // Try alternative hosts if current one fails
+          const alternativeHosts = [
+            'http://127.0.0.1:4943',
+            'http://localhost:4943',
+            `${window.location.origin}/api`
+          ];
+
+          let connected = false;
+          for (const altHost of alternativeHosts) {
+            if (altHost === HOST) continue; // Skip the one we already tried
+            
+            try {
+              console.log(`Trying alternative host for anonymous actor: ${altHost}`);
+              const altAgent = new HttpAgent({ host: altHost });
+              
+              await altAgent.fetchRootKey();
+              console.log(`Successfully connected anonymous actor to ${altHost}`);
+              this.agent = altAgent;
+              connected = true;
+              break;
+            } catch (altError) {
+              console.log(`Failed to connect anonymous actor to ${altHost}:`, altError instanceof Error ? altError.message : String(altError));
+            }
+          }
+
+          if (!connected) {
+            console.error('All connection attempts failed for anonymous actor. Using fallback mode.');
+            // Continue without root key for offline development
+            console.warn('Anonymous actor running in fallback mode - some features may not work');
+          }
+        }
+      }
+
+      this.actor = Actor.createActor<MuvInBackend>(idlFactory, {
+        agent: this.agent,
+        canisterId: CANISTER_ID,
+      });
+      
+      console.log('Anonymous actor created successfully');
+    } catch (error) {
+      console.error('Failed to create anonymous actor:', error);
+      throw error;
     }
-
-    this.actor = Actor.createActor<MuvInBackend>(idlFactory, {
-      agent: this.agent,
-      canisterId: CANISTER_ID,
-    });
   }
 
   // Authentication methods
@@ -326,189 +448,349 @@ class ICPService {
     };
   }
 
+  // Dummy data for development
+  private getDummyHotels(): UIHotel[] {
+    return [
+      {
+        id: 1,
+        name: "Grand Luxury Resort",
+        location: "Miami Beach, Florida",
+        description: "A stunning beachfront resort with world-class amenities and breathtaking ocean views. Perfect for luxury travelers seeking the ultimate relaxation experience.",
+        totalRooms: 150,
+        availableRooms: 45,
+        pricePerNight: 299.99,
+        amenities: ["Pool", "Spa", "Restaurant", "Beach Access", "Fitness Center", "Concierge"],
+        images: [
+          "https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=800",
+          "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800",
+          "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800"
+        ],
+        owner: "owner1",
+        rating: 4.8,
+        reviewCount: 128,
+        createdAt: new Date('2024-01-15')
+      },
+      {
+        id: 2,
+        name: "Urban Boutique Hotel",
+        location: "New York City, New York",
+        description: "Modern boutique hotel in the heart of Manhattan. Perfect for business travelers and urban explorers with contemporary design and premium location.",
+        totalRooms: 80,
+        availableRooms: 12,
+        pricePerNight: 189.99,
+        amenities: ["WiFi", "Business Center", "Restaurant", "Fitness Center", "Rooftop Bar"],
+        images: [
+          "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800",
+          "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800"
+        ],
+        owner: "owner2",
+        rating: 4.5,
+        reviewCount: 89,
+        createdAt: new Date('2024-02-20')
+      },
+      {
+        id: 3,
+        name: "Mountain View Lodge",
+        location: "Aspen, Colorado",
+        description: "Cozy mountain lodge with spectacular views and rustic charm. Ideal for ski enthusiasts and nature lovers seeking adventure and tranquility.",
+        totalRooms: 60,
+        availableRooms: 28,
+        pricePerNight: 159.99,
+        amenities: ["Ski Storage", "Fireplace", "Restaurant", "Hot Tub", "Mountain Views"],
+        images: [
+          "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800",
+          "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800"
+        ],
+        owner: "owner3",
+        rating: 4.7,
+        reviewCount: 64,
+        createdAt: new Date('2024-03-10')
+      },
+      {
+        id: 4,
+        name: "Coastal Paradise Resort",
+        location: "Malibu, California",
+        description: "Exclusive coastal resort offering luxury accommodations with private beach access and stunning Pacific Ocean views.",
+        totalRooms: 120,
+        availableRooms: 35,
+        pricePerNight: 399.99,
+        amenities: ["Private Beach", "Spa", "Pool", "Tennis Court", "Fine Dining", "Valet Service"],
+        images: [
+          "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",
+          "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800"
+        ],
+        owner: "owner4",
+        rating: 4.9,
+        reviewCount: 156,
+        createdAt: new Date('2024-01-05')
+      },
+      {
+        id: 5,
+        name: "Historic Downtown Inn",
+        location: "Charleston, South Carolina",
+        description: "Charming historic inn in the heart of Charleston's historic district. Experience Southern hospitality with modern comforts.",
+        totalRooms: 40,
+        availableRooms: 8,
+        pricePerNight: 149.99,
+        amenities: ["Historic Architecture", "Courtyard", "Restaurant", "WiFi", "Concierge"],
+        images: [
+          "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800",
+          "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800"
+        ],
+        owner: "owner5",
+        rating: 4.6,
+        reviewCount: 92,
+        createdAt: new Date('2024-04-12')
+      }
+    ];
+  }
+
+  private getDummyBookings(): UIBooking[] {
+    return [
+      {
+        id: 1,
+        hotelId: 1,
+        hotelName: "Grand Luxury Resort",
+        bookedBy: "user123",
+        checkIn: new Date('2024-08-15'),
+        checkOut: new Date('2024-08-20'),
+        nights: 5,
+        roomsBooked: 1,
+        totalPrice: 1499.95,
+        status: 'active',
+        createdAt: new Date('2024-07-10')
+      },
+      {
+        id: 2,
+        hotelId: 3,
+        hotelName: "Mountain View Lodge",
+        bookedBy: "user123",
+        checkIn: new Date('2024-09-01'),
+        checkOut: new Date('2024-09-05'),
+        nights: 4,
+        roomsBooked: 1,
+        totalPrice: 639.96,
+        status: 'pending',
+        createdAt: new Date('2024-07-15')
+      },
+      {
+        id: 3,
+        hotelId: 2,
+        hotelName: "Urban Boutique Hotel",
+        bookedBy: "user123",
+        checkIn: new Date('2024-06-20'),
+        checkOut: new Date('2024-06-25'),
+        nights: 5,
+        roomsBooked: 1,
+        totalPrice: 949.95,
+        status: 'completed',
+        createdAt: new Date('2024-06-01')
+      }
+    ];
+  }
+
+  private getDummyReviews(hotelId: number): UIReview[] {
+    const allReviews = [
+      {
+        id: 1,
+        hotelId: 1,
+        reviewedBy: "user456",
+        rating: 5,
+        comment: "Absolutely amazing experience! The staff was incredibly friendly and the ocean view was breathtaking. Will definitely come back!",
+        createdAt: new Date('2024-07-01')
+      },
+      {
+        id: 2,
+        hotelId: 1,
+        reviewedBy: "user789",
+        rating: 4,
+        comment: "Great location and beautiful facilities. The pool area was fantastic. Only minor issue was the WiFi speed in some areas.",
+        createdAt: new Date('2024-06-28')
+      },
+      {
+        id: 3,
+        hotelId: 2,
+        reviewedBy: "user321",
+        rating: 5,
+        comment: "Perfect for business trip! Central location, excellent service, and the rooftop bar has amazing city views.",
+        createdAt: new Date('2024-07-05')
+      },
+      {
+        id: 4,
+        hotelId: 3,
+        reviewedBy: "user654",
+        rating: 4,
+        comment: "Loved the mountain views and cozy atmosphere. Great for a weekend getaway. The hot tub was a nice touch after skiing.",
+        createdAt: new Date('2024-06-30')
+      },
+      {
+        id: 5,
+        hotelId: 4,
+        reviewedBy: "user987",
+        rating: 5,
+        comment: "Luxury at its finest! Private beach access was incredible and the spa treatments were world-class. Worth every penny!",
+        createdAt: new Date('2024-07-03')
+      }
+    ];
+    
+    return allReviews.filter(review => review.hotelId === hotelId);
+  }
+
   // Hotel operations
   async getHotels(): Promise<UIHotel[]> {
-    if (!this.actor) await this.init();
-    try {
-      const hotels = await this.actor!.getHotels();
-      return hotels.map(hotel => this.transformHotel(hotel));
-    } catch (error) {
-      console.error('Failed to get hotels:', error);
-      return [];
-    }
+    // Return dummy data for now
+    console.log('Returning dummy hotel data');
+    return new Promise(resolve => {
+      setTimeout(() => resolve(this.getDummyHotels()), 500); // Simulate network delay
+    });
   }
 
   async getHotel(id: number): Promise<UIHotel | null> {
-    if (!this.actor) await this.init();
-    try {
-      const hotel = await this.actor!.getHotel(BigInt(id));
-      return hotel ? this.transformHotel(hotel) : null;
-    } catch (error) {
-      console.error('Failed to get hotel:', error);
-      return null;
-    }
+    // Return dummy data for now
+    console.log('Returning dummy hotel data for ID:', id);
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const hotels = this.getDummyHotels();
+        const hotel = hotels.find(h => h.id === id) || null;
+        resolve(hotel);
+      }, 300);
+    });
   }
 
   async createHotel(hotel: CreateHotelForm): Promise<number | null> {
-    if (!this.actor || !this._isAuthenticated) {
+    if (!this._isAuthenticated) {
       throw new Error('Not authenticated');
     }
 
-    try {
-      const input: HotelInput = {
-        name: hotel.name,
-        location: hotel.location,
-        description: hotel.description,
-        totalRooms: BigInt(hotel.totalRooms),
-        pricePerNight: this.icpToE8s(hotel.pricePerNight),
-        amenities: hotel.amenities,
-        images: hotel.images,
-      };
-
-      const result = await this.actor.addHotel(input);
-      
-      if ('ok' in result) {
-        return Number(result.ok);
-      } else {
-        console.error('Failed to create hotel:', result.err);
-        return null;
-      }
-    } catch (error) {
-      console.error('Failed to create hotel:', error);
-      return null;
-    }
+    // Simulate creating hotel with dummy data
+    console.log('Creating hotel (dummy):', hotel);
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const newId = Math.floor(Math.random() * 1000) + 100;
+        resolve(newId);
+      }, 800);
+    });
   }
 
   async searchHotels(location: string, minPrice: number, maxPrice: number): Promise<UIHotel[]> {
-    if (!this.actor) await this.init();
-    try {
-      const hotels = await this.actor!.searchHotels(
-        location,
-        this.icpToE8s(minPrice),
-        this.icpToE8s(maxPrice)
-      );
-      return hotels.map(hotel => this.transformHotel(hotel));
-    } catch (error) {
-      console.error('Failed to search hotels:', error);
-      return [];
-    }
+    // Return filtered dummy data
+    console.log('Searching hotels (dummy):', { location, minPrice, maxPrice });
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const hotels = this.getDummyHotels();
+        let filtered = hotels;
+        
+        if (location) {
+          filtered = filtered.filter(hotel => 
+            hotel.location.toLowerCase().includes(location.toLowerCase()) ||
+            hotel.name.toLowerCase().includes(location.toLowerCase())
+          );
+        }
+        
+        if (minPrice > 0) {
+          filtered = filtered.filter(hotel => hotel.pricePerNight >= minPrice);
+        }
+        
+        if (maxPrice > 0) {
+          filtered = filtered.filter(hotel => hotel.pricePerNight <= maxPrice);
+        }
+        
+        resolve(filtered);
+      }, 400);
+    });
   }
 
   // Booking operations
   async createBooking(booking: CreateBookingForm): Promise<number | null> {
-    if (!this.actor || !this._isAuthenticated) {
+    if (!this._isAuthenticated) {
       throw new Error('Not authenticated');
     }
 
-    try {
-      const input: BookingInput = {
-        hotelId: BigInt(booking.hotelId),
-        checkIn: BigInt(booking.checkIn.getTime() * 1_000_000), // milliseconds to nanoseconds
-        checkOut: BigInt(booking.checkOut.getTime() * 1_000_000),
-        roomsBooked: BigInt(booking.roomsBooked),
-      };
-
-      const result = await this.actor.bookHotel(input);
-      
-      if ('ok' in result) {
-        return Number(result.ok);
-      } else {
-        console.error('Failed to create booking:', result.err);
-        return null;
-      }
-    } catch (error) {
-      console.error('Failed to create booking:', error);
-      return null;
-    }
+    // Simulate creating booking with dummy data
+    console.log('Creating booking (dummy):', booking);
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const newId = Math.floor(Math.random() * 1000) + 200;
+        resolve(newId);
+      }, 600);
+    });
   }
 
   async getMyBookings(): Promise<UIBooking[]> {
-    if (!this.actor || !this._isAuthenticated) return [];
+    if (!this._isAuthenticated) return [];
     
-    try {
-      const bookings = await this.actor.getMyBookings();
-      return bookings.map(booking => this.transformBooking(booking));
-    } catch (error) {
-      console.error('Failed to get bookings:', error);
-      return [];
-    }
+    // Return dummy bookings data
+    console.log('Returning dummy bookings data');
+    return new Promise(resolve => {
+      setTimeout(() => resolve(this.getDummyBookings()), 400);
+    });
   }
 
   async cancelBooking(bookingId: number): Promise<boolean> {
-    if (!this.actor || !this._isAuthenticated) return false;
+    if (!this._isAuthenticated) return false;
     
-    try {
-      const result = await this.actor.cancelBooking(BigInt(bookingId));
-      return 'ok' in result;
-    } catch (error) {
-      console.error('Failed to cancel booking:', error);
-      return false;
-    }
+    // Simulate cancelling booking
+    console.log('Cancelling booking (dummy):', bookingId);
+    return new Promise(resolve => {
+      setTimeout(() => resolve(true), 500);
+    });
   }
 
   // Review operations
   async createReview(review: CreateReviewForm): Promise<number | null> {
-    if (!this.actor || !this._isAuthenticated) {
+    if (!this._isAuthenticated) {
       throw new Error('Not authenticated');
     }
 
-    try {
-      const result = await this.actor.addReview(
-        BigInt(review.hotelId),
-        BigInt(review.rating),
-        review.comment
-      );
-      
-      if ('ok' in result) {
-        return Number(result.ok);
-      } else {
-        console.error('Failed to create review:', result.err);
-        return null;
-      }
-    } catch (error) {
-      console.error('Failed to create review:', error);
-      return null;
-    }
+    // Simulate creating review
+    console.log('Creating review (dummy):', review);
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const newId = Math.floor(Math.random() * 1000) + 300;
+        resolve(newId);
+      }, 500);
+    });
   }
 
   async getHotelReviews(hotelId: number): Promise<UIReview[]> {
-    if (!this.actor) await this.init();
-    try {
-      const reviews = await this.actor!.getHotelReviews(BigInt(hotelId));
-      return reviews.map(review => this.transformReview(review));
-    } catch (error) {
-      console.error('Failed to get reviews:', error);
-      return [];
-    }
+    // Return dummy reviews for the specific hotel
+    console.log('Returning dummy reviews for hotel:', hotelId);
+    return new Promise(resolve => {
+      setTimeout(() => resolve(this.getDummyReviews(hotelId)), 300);
+    });
   }
 
   // User operations
   async getMyProfile(): Promise<UIUser | null> {
-    if (!this.actor || !this._isAuthenticated) return null;
+    if (!this._isAuthenticated) return null;
     
-    try {
-      const user = await this.actor.getMyProfile();
-      return this.transformUser(user);
-    } catch (error) {
-      console.error('Failed to get profile:', error);
-      return null;
-    }
+    // Return dummy user profile
+    console.log('Returning dummy user profile');
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve({
+          principal: this.principal || 'dummy-principal-123',
+          isHotelOwner: false,
+          totalBookings: 3,
+          joinedAt: new Date('2024-01-10')
+        });
+      }, 300);
+    });
   }
 
   // Analytics
   async getPlatformStats(): Promise<{ totalHotels: number; totalBookings: number; totalUsers: number } | null> {
-    if (!this.actor) await this.init();
-    try {
-      const stats = await this.actor!.getPlatformStats();
-      return {
-        totalHotels: Number(stats.totalHotels),
-        totalBookings: Number(stats.totalBookings),
-        totalUsers: Number(stats.totalUsers),
-      };
-    } catch (error) {
-      console.error('Failed to get platform stats:', error);
-      return null;
-    }
+    // Return dummy platform stats
+    console.log('Returning dummy platform stats');
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve({
+          totalHotels: 5,
+          totalBookings: 47,
+          totalUsers: 156
+        });
+      }, 400);
+    });
   }
 }
 

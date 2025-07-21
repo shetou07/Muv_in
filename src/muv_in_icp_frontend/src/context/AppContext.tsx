@@ -123,6 +123,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const auth = useAuth();
 
+  // Load initial data when authentication state changes
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        dispatch({ type: 'CLEAR_ERROR' });
+        
+        // Always load hotels (public data)
+        await loadHotels();
+        
+        // Load user-specific data if authenticated
+        if (auth.isAuthenticated && !auth.isLoading) {
+          await Promise.all([
+            loadUserProfile(),
+            loadMyBookings(),
+            loadPlatformStats()
+          ]);
+        }
+      } catch (error) {
+        console.error('Failed to load initial data:', error);
+        dispatch({ type: 'SET_ERROR', payload: 'Failed to load application data' });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
+
+    // Only load data when auth state is stable (not loading)
+    if (!auth.isLoading) {
+      loadInitialData();
+    }
+  }, [auth.isAuthenticated, auth.isLoading]);
+
   // Hotel operations
   const loadHotels = async (): Promise<void> => {
     try {
