@@ -121,10 +121,14 @@ const actor = Actor.createActor(idlFactory, { agent, canisterId });
 
 ---
 
-## 👤 Author
+## 👤 Team
 
 **Shema Collins**
-Lead Developer – Full Stack ICP DApp Architect
+
+**Muhangi Elioda**
+
+**Muhangi Elioda**
+
 
 ---
 
