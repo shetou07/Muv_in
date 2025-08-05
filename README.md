@@ -127,7 +127,7 @@ const actor = Actor.createActor(idlFactory, { agent, canisterId });
 
 **Muhangi Elioda**
 
-**Muhangi Elioda**
+**Ainamaani Douglas Bagambe**
 
 
 ---
