@@ -53,7 +53,7 @@ muv_in/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<your-username>/muv_in.git
+git clone https://github.com/shetou07/muv_in.git
 cd muv_in
 ```
 
