@@ -1,12 +1,12 @@
 # Muv In – Decentralized Hotel Booking Platform
 
-## 🧭 Overview
+##  Overview
 
 **Muv In** is a decentralized hotel booking application built on the Internet Computer Protocol (ICP). It enables users to seamlessly discover, book, and manage accommodation options using blockchain technology. The backend smart contracts are developed in Motoko, while the frontend is crafted using React and TypeScript for a modern and intuitive user interface.
 
 ---
 
-## 🚀 Features
+##  Features
 
 * Fully decentralized hotel listing and booking
 * Blockchain-backed data integrity and tamper-proof records
@@ -16,7 +16,7 @@
 
 ---
 
-## 🧱 Tech Stack
+##  Tech Stack
 
 * **Backend**: Motoko (canisters), DFX SDK
 * **Frontend**: React + TypeScript
@@ -26,7 +26,7 @@
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 muv_in/
@@ -48,7 +48,7 @@ muv_in/
 
 ---
 
-## 🛠️ Getting Started
+##  Getting Started
 
 ### 1. Clone the Repository
 
@@ -69,7 +69,7 @@ Download from: [https://nodejs.org](https://nodejs.org) (use LTS version)
 
 ---
 
-## ⚙️ Running the Application
+##  Running the Application
 
 ### 1. Start Local ICP Environment
 
@@ -96,7 +96,7 @@ Visit `http://localhost:3000` to view the frontend.
 
 ---
 
-## 🔗 Connect Frontend to ICP Backend
+##  Connect Frontend to ICP Backend
 
 Use `@dfinity/agent` and generated bindings:
 
@@ -111,7 +111,7 @@ const actor = Actor.createActor(idlFactory, { agent, canisterId });
 
 ---
 
-## 📌 Roadmap
+##  Roadmap
 
 * ✅ MVP with decentralized booking logic
 * 🚧 Add hotel rating & review system
@@ -121,7 +121,7 @@ const actor = Actor.createActor(idlFactory, { agent, canisterId });
 
 ---
 
-## 👤 Team
+##  Team
 
 **Shema Collins**
 
