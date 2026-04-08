@@ -1,7 +1,6 @@
 import { HttpAgent, Actor } from '@dfinity/agent';
 import { AuthClient } from '@dfinity/auth-client';
 import { IDL } from '@dfinity/candid';
-import { Principal } from '@dfinity/principal';
 import type { MuvInBackend } from './actor';
 import type {
   Hotel,
@@ -18,7 +17,7 @@ import type {
   CreateBookingForm,
   CreateReviewForm,
   Result,
-  HotelStats,
+  ErrorType,
   PlatformStats
 } from './types';
 
@@ -379,6 +378,55 @@ class ICPService {
     return this._identity?.getPrincipal()?.toString() || '';
   }
 
+  private async ensureActor(requireAuth = false): Promise<MuvInBackend> {
+    if (!this.actor) {
+      await this.init();
+    }
+
+    if (requireAuth && !this._isAuthenticated) {
+      throw new Error('Not authenticated');
+    }
+
+    if (!this.actor) {
+      throw new Error('ICP actor is not initialized');
+    }
+
+    return this.actor;
+  }
+
+  private getErrorMessage(errorType: ErrorType): string {
+    if ('NotFound' in errorType) return 'Resource not found';
+    if ('Unauthorized' in errorType) return 'Unauthorized';
+    if ('InvalidInput' in errorType) return 'Invalid input';
+    if ('InsufficientRooms' in errorType) return 'Not enough rooms available';
+    if ('BookingConflict' in errorType) return 'Booking conflict detected';
+    return 'Unexpected backend error';
+  }
+
+  private unwrapResult<T>(result: Result<T>): T {
+    if ('ok' in result) {
+      return result.ok;
+    }
+
+    throw new Error(this.getErrorMessage(result.err));
+  }
+
+  private dateToNanoseconds(date: Date): bigint {
+    return BigInt(date.getTime()) * BigInt(1_000_000);
+  }
+
+  private transformPlatformStats(stats: PlatformStats): {
+    totalHotels: number;
+    totalBookings: number;
+    totalUsers: number;
+  } {
+    return {
+      totalHotels: Number(stats.totalHotels),
+      totalBookings: Number(stats.totalBookings),
+      totalUsers: Number(stats.totalUsers),
+    };
+  }
+
   // Data transformation utilities
   private e8sToICP(e8s: bigint): number {
     return Number(e8s) / 100_000_000;
@@ -448,349 +496,104 @@ class ICPService {
     };
   }
 
-  // Dummy data for development
-  private getDummyHotels(): UIHotel[] {
-    return [
-      {
-        id: 1,
-        name: "Grand Luxury Resort",
-        location: "Miami Beach, Florida",
-        description: "A stunning beachfront resort with world-class amenities and breathtaking ocean views. Perfect for luxury travelers seeking the ultimate relaxation experience.",
-        totalRooms: 150,
-        availableRooms: 45,
-        pricePerNight: 299.99,
-        amenities: ["Pool", "Spa", "Restaurant", "Beach Access", "Fitness Center", "Concierge"],
-        images: [
-          "https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=800",
-          "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800",
-          "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800"
-        ],
-        owner: "owner1",
-        rating: 4.8,
-        reviewCount: 128,
-        createdAt: new Date('2024-01-15')
-      },
-      {
-        id: 2,
-        name: "Urban Boutique Hotel",
-        location: "New York City, New York",
-        description: "Modern boutique hotel in the heart of Manhattan. Perfect for business travelers and urban explorers with contemporary design and premium location.",
-        totalRooms: 80,
-        availableRooms: 12,
-        pricePerNight: 189.99,
-        amenities: ["WiFi", "Business Center", "Restaurant", "Fitness Center", "Rooftop Bar"],
-        images: [
-          "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800",
-          "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800"
-        ],
-        owner: "owner2",
-        rating: 4.5,
-        reviewCount: 89,
-        createdAt: new Date('2024-02-20')
-      },
-      {
-        id: 3,
-        name: "Mountain View Lodge",
-        location: "Aspen, Colorado",
-        description: "Cozy mountain lodge with spectacular views and rustic charm. Ideal for ski enthusiasts and nature lovers seeking adventure and tranquility.",
-        totalRooms: 60,
-        availableRooms: 28,
-        pricePerNight: 159.99,
-        amenities: ["Ski Storage", "Fireplace", "Restaurant", "Hot Tub", "Mountain Views"],
-        images: [
-          "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800",
-          "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800"
-        ],
-        owner: "owner3",
-        rating: 4.7,
-        reviewCount: 64,
-        createdAt: new Date('2024-03-10')
-      },
-      {
-        id: 4,
-        name: "Coastal Paradise Resort",
-        location: "Malibu, California",
-        description: "Exclusive coastal resort offering luxury accommodations with private beach access and stunning Pacific Ocean views.",
-        totalRooms: 120,
-        availableRooms: 35,
-        pricePerNight: 399.99,
-        amenities: ["Private Beach", "Spa", "Pool", "Tennis Court", "Fine Dining", "Valet Service"],
-        images: [
-          "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",
-          "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800"
-        ],
-        owner: "owner4",
-        rating: 4.9,
-        reviewCount: 156,
-        createdAt: new Date('2024-01-05')
-      },
-      {
-        id: 5,
-        name: "Historic Downtown Inn",
-        location: "Charleston, South Carolina",
-        description: "Charming historic inn in the heart of Charleston's historic district. Experience Southern hospitality with modern comforts.",
-        totalRooms: 40,
-        availableRooms: 8,
-        pricePerNight: 149.99,
-        amenities: ["Historic Architecture", "Courtyard", "Restaurant", "WiFi", "Concierge"],
-        images: [
-          "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800",
-          "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800"
-        ],
-        owner: "owner5",
-        rating: 4.6,
-        reviewCount: 92,
-        createdAt: new Date('2024-04-12')
-      }
-    ];
-  }
-
-  private getDummyBookings(): UIBooking[] {
-    return [
-      {
-        id: 1,
-        hotelId: 1,
-        hotelName: "Grand Luxury Resort",
-        bookedBy: "user123",
-        checkIn: new Date('2024-08-15'),
-        checkOut: new Date('2024-08-20'),
-        nights: 5,
-        roomsBooked: 1,
-        totalPrice: 1499.95,
-        status: 'active',
-        createdAt: new Date('2024-07-10')
-      },
-      {
-        id: 2,
-        hotelId: 3,
-        hotelName: "Mountain View Lodge",
-        bookedBy: "user123",
-        checkIn: new Date('2024-09-01'),
-        checkOut: new Date('2024-09-05'),
-        nights: 4,
-        roomsBooked: 1,
-        totalPrice: 639.96,
-        status: 'pending',
-        createdAt: new Date('2024-07-15')
-      },
-      {
-        id: 3,
-        hotelId: 2,
-        hotelName: "Urban Boutique Hotel",
-        bookedBy: "user123",
-        checkIn: new Date('2024-06-20'),
-        checkOut: new Date('2024-06-25'),
-        nights: 5,
-        roomsBooked: 1,
-        totalPrice: 949.95,
-        status: 'completed',
-        createdAt: new Date('2024-06-01')
-      }
-    ];
-  }
-
-  private getDummyReviews(hotelId: number): UIReview[] {
-    const allReviews = [
-      {
-        id: 1,
-        hotelId: 1,
-        reviewedBy: "user456",
-        rating: 5,
-        comment: "Absolutely amazing experience! The staff was incredibly friendly and the ocean view was breathtaking. Will definitely come back!",
-        createdAt: new Date('2024-07-01')
-      },
-      {
-        id: 2,
-        hotelId: 1,
-        reviewedBy: "user789",
-        rating: 4,
-        comment: "Great location and beautiful facilities. The pool area was fantastic. Only minor issue was the WiFi speed in some areas.",
-        createdAt: new Date('2024-06-28')
-      },
-      {
-        id: 3,
-        hotelId: 2,
-        reviewedBy: "user321",
-        rating: 5,
-        comment: "Perfect for business trip! Central location, excellent service, and the rooftop bar has amazing city views.",
-        createdAt: new Date('2024-07-05')
-      },
-      {
-        id: 4,
-        hotelId: 3,
-        reviewedBy: "user654",
-        rating: 4,
-        comment: "Loved the mountain views and cozy atmosphere. Great for a weekend getaway. The hot tub was a nice touch after skiing.",
-        createdAt: new Date('2024-06-30')
-      },
-      {
-        id: 5,
-        hotelId: 4,
-        reviewedBy: "user987",
-        rating: 5,
-        comment: "Luxury at its finest! Private beach access was incredible and the spa treatments were world-class. Worth every penny!",
-        createdAt: new Date('2024-07-03')
-      }
-    ];
-    
-    return allReviews.filter(review => review.hotelId === hotelId);
-  }
-
   // Hotel operations
   async getHotels(): Promise<UIHotel[]> {
-    // Return dummy data for now
-    console.log('Returning dummy hotel data');
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.getDummyHotels()), 500); // Simulate network delay
-    });
+    const actor = await this.ensureActor();
+    const hotels = await actor.getHotels();
+    return hotels.map(hotel => this.transformHotel(hotel));
   }
 
   async getHotel(id: number): Promise<UIHotel | null> {
-    // Return dummy data for now
-    console.log('Returning dummy hotel data for ID:', id);
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const hotels = this.getDummyHotels();
-        const hotel = hotels.find(h => h.id === id) || null;
-        resolve(hotel);
-      }, 300);
-    });
+    const actor = await this.ensureActor();
+    const result = await actor.getHotel(BigInt(id));
+    const hotel = Array.isArray(result) ? result[0] : result;
+    return hotel ? this.transformHotel(hotel) : null;
   }
 
   async createHotel(hotel: CreateHotelForm): Promise<number | null> {
-    if (!this._isAuthenticated) {
-      throw new Error('Not authenticated');
-    }
+    const actor = await this.ensureActor(true);
+    const payload: HotelInput = {
+      name: hotel.name,
+      location: hotel.location,
+      description: hotel.description,
+      totalRooms: BigInt(hotel.totalRooms),
+      pricePerNight: this.icpToE8s(hotel.pricePerNight),
+      amenities: hotel.amenities,
+      images: hotel.images,
+    };
 
-    // Simulate creating hotel with dummy data
-    console.log('Creating hotel (dummy):', hotel);
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const newId = Math.floor(Math.random() * 1000) + 100;
-        resolve(newId);
-      }, 800);
-    });
+    const hotelId = this.unwrapResult(await actor.addHotel(payload));
+    return Number(hotelId);
   }
 
   async searchHotels(location: string, minPrice: number, maxPrice: number): Promise<UIHotel[]> {
-    // Return filtered dummy data
-    console.log('Searching hotels (dummy):', { location, minPrice, maxPrice });
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const hotels = this.getDummyHotels();
-        let filtered = hotels;
-        
-        if (location) {
-          filtered = filtered.filter(hotel => 
-            hotel.location.toLowerCase().includes(location.toLowerCase()) ||
-            hotel.name.toLowerCase().includes(location.toLowerCase())
-          );
-        }
-        
-        if (minPrice > 0) {
-          filtered = filtered.filter(hotel => hotel.pricePerNight >= minPrice);
-        }
-        
-        if (maxPrice > 0) {
-          filtered = filtered.filter(hotel => hotel.pricePerNight <= maxPrice);
-        }
-        
-        resolve(filtered);
-      }, 400);
-    });
+    const actor = await this.ensureActor();
+    const hotels = await actor.searchHotels(
+      location,
+      this.icpToE8s(minPrice),
+      this.icpToE8s(maxPrice)
+    );
+
+    return hotels.map(hotel => this.transformHotel(hotel));
   }
 
   // Booking operations
   async createBooking(booking: CreateBookingForm): Promise<number | null> {
-    if (!this._isAuthenticated) {
-      throw new Error('Not authenticated');
-    }
+    const actor = await this.ensureActor(true);
+    const payload: BookingInput = {
+      hotelId: BigInt(booking.hotelId),
+      checkIn: this.dateToNanoseconds(booking.checkIn),
+      checkOut: this.dateToNanoseconds(booking.checkOut),
+      roomsBooked: BigInt(booking.roomsBooked),
+    };
 
-    // Simulate creating booking with dummy data
-    console.log('Creating booking (dummy):', booking);
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const newId = Math.floor(Math.random() * 1000) + 200;
-        resolve(newId);
-      }, 600);
-    });
+    const bookingId = this.unwrapResult(await actor.bookHotel(payload));
+    return Number(bookingId);
   }
 
   async getMyBookings(): Promise<UIBooking[]> {
     if (!this._isAuthenticated) return [];
-    
-    // Return dummy bookings data
-    console.log('Returning dummy bookings data');
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.getDummyBookings()), 400);
-    });
+
+    const actor = await this.ensureActor(true);
+    const bookings = await actor.getMyBookings();
+    return bookings.map(booking => this.transformBooking(booking));
   }
 
   async cancelBooking(bookingId: number): Promise<boolean> {
-    if (!this._isAuthenticated) return false;
-    
-    // Simulate cancelling booking
-    console.log('Cancelling booking (dummy):', bookingId);
-    return new Promise(resolve => {
-      setTimeout(() => resolve(true), 500);
-    });
+    const actor = await this.ensureActor(true);
+    this.unwrapResult(await actor.cancelBooking(BigInt(bookingId)));
+    return true;
   }
 
   // Review operations
   async createReview(review: CreateReviewForm): Promise<number | null> {
-    if (!this._isAuthenticated) {
-      throw new Error('Not authenticated');
-    }
-
-    // Simulate creating review
-    console.log('Creating review (dummy):', review);
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const newId = Math.floor(Math.random() * 1000) + 300;
-        resolve(newId);
-      }, 500);
-    });
+    const actor = await this.ensureActor(true);
+    const reviewId = this.unwrapResult(
+      await actor.addReview(BigInt(review.hotelId), BigInt(review.rating), review.comment)
+    );
+    return Number(reviewId);
   }
 
   async getHotelReviews(hotelId: number): Promise<UIReview[]> {
-    // Return dummy reviews for the specific hotel
-    console.log('Returning dummy reviews for hotel:', hotelId);
-    return new Promise(resolve => {
-      setTimeout(() => resolve(this.getDummyReviews(hotelId)), 300);
-    });
+    const actor = await this.ensureActor();
+    const reviews = await actor.getHotelReviews(BigInt(hotelId));
+    return reviews.map(review => this.transformReview(review));
   }
 
   // User operations
   async getMyProfile(): Promise<UIUser | null> {
     if (!this._isAuthenticated) return null;
-    
-    // Return dummy user profile
-    console.log('Returning dummy user profile');
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({
-          principal: this.principal || 'dummy-principal-123',
-          isHotelOwner: false,
-          totalBookings: 3,
-          joinedAt: new Date('2024-01-10')
-        });
-      }, 300);
-    });
+
+    const actor = await this.ensureActor(true);
+    const profile = await actor.getMyProfile();
+    return this.transformUser(profile);
   }
 
   // Analytics
   async getPlatformStats(): Promise<{ totalHotels: number; totalBookings: number; totalUsers: number } | null> {
-    // Return dummy platform stats
-    console.log('Returning dummy platform stats');
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({
-          totalHotels: 5,
-          totalBookings: 47,
-          totalUsers: 156
-        });
-      }, 400);
-    });
+    const actor = await this.ensureActor();
+    const stats = await actor.getPlatformStats();
+    return this.transformPlatformStats(stats);
   }
 }
 

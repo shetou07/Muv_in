@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -57,10 +57,7 @@ const BookingsPage: React.FC = () => {
   const handleCancelBooking = async (bookingId: number) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
       const success = await cancelBooking(bookingId);
-      if (success) {
-        // Refresh bookings will be handled by the context
-        window.location.reload(); // Simple refresh for now
-      } else {
+      if (!success) {
         alert('Failed to cancel booking. Please try again.');
       }
     }

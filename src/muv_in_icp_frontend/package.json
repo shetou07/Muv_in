@@ -27,13 +27,13 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "NODE_OPTIONS='--no-deprecation' react-scripts start",
-    "build": "NODE_OPTIONS='--no-deprecation' react-scripts build",
-    "test": "NODE_OPTIONS='--no-deprecation' react-scripts test",
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
     "eject": "react-scripts eject",
     "dev": "npm run ensure-dfx && npm start",
     "ensure-dfx": "cd ../.. && ./ensure-dfx.sh",
-    "start-quiet": "NODE_OPTIONS='--no-deprecation --no-warnings' react-scripts start"
+    "start-quiet": "react-scripts start"
   },
   "eslintConfig": {
     "extends": [

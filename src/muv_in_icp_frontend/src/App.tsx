@@ -38,7 +38,7 @@ const ErrorToast: React.FC = () => {
 
 // Main App Content
 const AppContent: React.FC = () => {
-  const { isLoading, authLoading } = useApp();
+  const { authLoading } = useApp();
 
   if (authLoading) {
     return (

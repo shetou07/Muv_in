@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useCallback } from 'react';
 import { icpService } from '../services/icpService';
 import { useAuth } from '../hooks/useAuth';
 import type { 
@@ -123,38 +123,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const auth = useAuth();
 
-  // Load initial data when authentication state changes
-  useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        dispatch({ type: 'SET_LOADING', payload: true });
-        dispatch({ type: 'CLEAR_ERROR' });
-        
-        // Always load hotels (public data)
-        await loadHotels();
-        
-        // Load user-specific data if authenticated
-        if (auth.isAuthenticated && !auth.isLoading) {
-          await Promise.all([
-            loadUserProfile(),
-            loadMyBookings(),
-            loadPlatformStats()
-          ]);
-        }
-      } catch (error) {
-        console.error('Failed to load initial data:', error);
-        dispatch({ type: 'SET_ERROR', payload: 'Failed to load application data' });
-      } finally {
-        dispatch({ type: 'SET_LOADING', payload: false });
-      }
-    };
-
-    // Only load data when auth state is stable (not loading)
-    if (!auth.isLoading) {
-      loadInitialData();
-    }
-  }, [auth.isAuthenticated, auth.isLoading]);
-
   // Hotel operations
   const loadHotels = async (): Promise<void> => {
     try {
@@ -213,7 +181,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Booking operations
-  const loadMyBookings = async (): Promise<void> => {
+  const loadMyBookings = useCallback(async (): Promise<void> => {
     if (!auth.isAuthenticated) return;
 
     try {
@@ -223,7 +191,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('Failed to load bookings:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load bookings' });
     }
-  };
+  }, [auth.isAuthenticated]);
 
   const createBooking = async (booking: CreateBookingForm): Promise<number | null> => {
     if (!auth.isAuthenticated) {
@@ -316,7 +284,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // User operations
-  const loadUserProfile = async (): Promise<void> => {
+  const loadUserProfile = useCallback(async (): Promise<void> => {
     if (!auth.isAuthenticated) return;
 
     try {
@@ -326,7 +294,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('Failed to load user profile:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load user profile' });
     }
-  };
+  }, [auth.isAuthenticated]);
 
   // Analytics
   const loadPlatformStats = async (): Promise<void> => {
@@ -351,6 +319,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const loadInitialData = async () => {
       try {
         dispatch({ type: 'SET_LOADING', payload: true });
+        dispatch({ type: 'CLEAR_ERROR' });
         
         // Load hotels and platform stats (available without auth)
         await Promise.all([
@@ -376,7 +345,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!auth.isLoading) {
       loadInitialData();
     }
-  }, [auth.isAuthenticated, auth.isLoading]);
+  }, [auth.isAuthenticated, auth.isLoading, loadMyBookings, loadUserProfile]);
 
   const contextValue: AppContextType = {
     // State
