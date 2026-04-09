@@ -34,8 +34,8 @@ for i in {1..30}; do
     fi
 done
 
-echo "🎉 DFX is running successfully!"
-echo "📍 Backend accessible at: http://127.0.0.1:4943"
-echo "🆔 Backend Canister ID: uxrrr-q7777-77774-qaaaq-cai"
+echo " DFX is running successfully!"
+echo " Backend accessible at: http://127.0.0.1:4943"
+echo " Backend Canister ID: uxrrr-q7777-77774-qaaaq-cai"
 echo ""
-echo "💡 Your frontend should now connect successfully!"
+echo " Your frontend should now connect successfully!"
